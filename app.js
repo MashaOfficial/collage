@@ -37,6 +37,7 @@ const collageGenerator = (function() {
     });   
     drawDimLayer(dimLayer.getContext("2d"));
        drawQuote(dimLayer.getContext("2d"));
+       drawImages(imagesLayer.getContext("2d")).then(() => appendDownloadButton());
   }
 
   function drawQuote(ctx) {
@@ -59,10 +60,44 @@ const collageGenerator = (function() {
         true
       );
       xhr.onload = () => {
-         resolve(xhr.responseText);
+ const e = document.createElement("div");
+        e.innerHTML = JSON.parse(xhr.response)[0].content;
+        const responseText = e.childNodes[0].textContent;
+        resolve(responseText);
       };
       xhr.send();
     });
+  }
+function wrapQuote(ctx, maxWidth, text) {
+    return new Promise(resolve => {
+      const words = text.split(" ");
+
+      const wrappedText = words.reduce(
+        (acc, word) => {
+          const extLine =
+            acc.currLine === "" ? word : `${acc.currLine} ${word}`;
+          const isOverflows = ctx.measureText(extLine).width > maxWidth;
+          if (acc.currLine === "" && isOverflows) {
+            acc.wrapped = `${acc.wrapped}\n${word}`;
+          } else if (isOverflows) {
+            acc.wrapped = `${acc.wrapped}\n${acc.currLine}`;
+            acc.currLine = word;
+          } else {
+            acc.currLine = extLine;
+          }
+          return acc;
+        },
+        { wrapped: "", currLine: "" }
+      );
+
+      resolve(`${wrappedText.wrapped}\n${wrappedText.currLine}`.trim());
+    });
+  }
+  function getTextYPosition(maxHeight, text, fontSize) {
+    const textHeight = text.split("\n").length * fontSize;
+    const textYPosition =
+      textHeight > maxHeight ? 0 : maxHeight / 2 - textHeight / 2 + fontSize;
+    return [text, textYPosition];
   }
 
   function drawDimLayer(ctx) {
